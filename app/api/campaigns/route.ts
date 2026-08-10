@@ -13,6 +13,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const adminToken = process.env.CHATSTREET_ADMIN_TOKEN;
+  const authorization = request.headers.get("authorization");
+  if (!adminToken || authorization !== `Bearer ${adminToken}`) {
+    return json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = (await request.json()) as Record<string, unknown>;
   const id = cleanString(body.id, 80) || DEFAULT_CAMPAIGN.id;
   const current = await getCampaign(id);
