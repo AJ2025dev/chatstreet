@@ -12,7 +12,7 @@ const EMBED = `(function(){
   var pageUrl=encodeURIComponent(location.href);
   var pageTitle=encodeURIComponent(document.title);
   var query="campaign="+encodeURIComponent(campaign)+"&publisher="+encodeURIComponent(publisher)+"&mode="+encodeURIComponent(mode)+"&pageUrl="+pageUrl+"&pageTitle="+pageTitle+"&pageContext="+encodeURIComponent(articleText);
-  ["placementId","creativeId","lineItemId","demandPlatform"].forEach(function(key){if(script.dataset[key])query+="&"+key+"="+encodeURIComponent(script.dataset[key]);});
+  ["placementId","creativeId","lineItemId","demandPlatform","impressionId","insertionOrderId","publisherId","siteId","auctionId","orderId","adUnitId"].forEach(function(key){if(script.dataset[key])query+="&"+key+"="+encodeURIComponent(script.dataset[key]);});
   frame.src=base+"/widget?"+query;
   frame.title="ChatStreet contextual assistant";
   frame.setAttribute("aria-label","ChatStreet contextual assistant");

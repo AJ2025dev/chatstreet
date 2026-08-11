@@ -9,24 +9,51 @@ export async function GET(request: Request) {
   if (!hasSupabase(true)) {
     return json({ error: "Supabase admin configuration is unavailable" }, { status: 503 });
   }
-  const campaignId = new URL(request.url).searchParams.get("campaignId") || DEFAULT_CAMPAIGN.id;
+  const url = new URL(request.url);
+  const campaignId = url.searchParams.get("campaignId") || DEFAULT_CAMPAIGN.id;
   try {
     const filter = `campaign_id=eq.${encodeURIComponent(campaignId)}`;
-    const [sessions, conversations, sponsoredMatches, ctaClicks, leads, recentResult, sessionResult, messageResult] = await Promise.all([
+    const [widgetLoads, engagedSessions, conversations, sponsoredMatches, ctaClicks, leads, recentResult, sessionResult, messageResult, deliveryResult] = await Promise.all([
       supabaseCount(`sessions?select=id&${filter}`),
+      supabaseCount(`events?select=id&${filter}&type=eq.engagement_start`),
       supabaseCount(`events?select=id&${filter}&type=eq.message_sent`),
       supabaseCount(`events?select=id&${filter}&type=eq.sponsored_match`),
       supabaseCount(`events?select=id&${filter}&type=eq.cta_click`),
       supabaseCount(`leads?select=id&${filter}`),
       supabaseRest<unknown[]>(`events?select=id,session_id,type,intent,value,metadata,occurred_at&${filter}&order=occurred_at.desc&limit=20`, {}, { admin: true }),
-      supabaseRest<unknown[]>(`sessions?select=id,publisher,placement_id,creative_id,line_item_id,demand_platform,page_url,page_title,created_at&${filter}&order=created_at.desc&limit=20`, {}, { admin: true }),
+      supabaseRest<unknown[]>(`sessions?select=id,publisher,placement_id,creative_id,line_item_id,demand_platform,page_url,page_title,impression_id,insertion_order_id,platform_publisher_id,site_id,auction_id,order_id,ad_unit_id,created_at&${filter}&order=created_at.desc&limit=20`, {}, { admin: true }),
       supabaseRest<unknown[]>(`messages?select=id,session_id,role,intent,sponsored,model,latency_ms,created_at&${filter}&order=created_at.desc&limit=20`, {}, { admin: true }),
+      supabaseRest<Array<Record<string, unknown>>>(`sessions?select=id,publisher,placement_id,creative_id,line_item_id,demand_platform,impression_id,insertion_order_id,site_id,created_at&${filter}&order=created_at.desc&limit=5000`, {}, { admin: true }),
     ]);
+    const delivery = new Map<string, { date: string; platform: string; publisher: string; lineItemId: string; creativeId: string; placementId: string; insertionOrderId: string; siteId: string; widgetLoads: number; matchedImpressions: number }>();
+    for (const row of deliveryResult.data) {
+      const date = String(row.created_at || "").slice(0, 10);
+      const platform = String(row.demand_platform || "direct");
+      const publisher = String(row.publisher || "unknown");
+      const lineItemId = String(row.line_item_id || "");
+      const creativeId = String(row.creative_id || "");
+      const placementId = String(row.placement_id || "");
+      const insertionOrderId = String(row.insertion_order_id || "");
+      const siteId = String(row.site_id || "");
+      const key = [date, platform, publisher, lineItemId, creativeId, placementId, insertionOrderId, siteId].join("|");
+      const item = delivery.get(key) || { date, platform, publisher, lineItemId, creativeId, placementId, insertionOrderId, siteId, widgetLoads: 0, matchedImpressions: 0 };
+      item.widgetLoads += 1;
+      if (row.impression_id) item.matchedImpressions += 1;
+      delivery.set(key, item);
+    }
+    const reconciliation = [...delivery.values()];
+    if (url.searchParams.get("format") === "csv") {
+      const columns = ["date","platform","publisher","lineItemId","creativeId","placementId","insertionOrderId","siteId","widgetLoads","matchedImpressions"] as const;
+      const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+      const csv = [columns.join(","), ...reconciliation.map((row) => columns.map((column) => escape(row[column])).join(","))].join("\n");
+      return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="chatstreet-${campaignId}-reconciliation.csv"`, "Cache-Control": "no-store" } });
+    }
     return json({
-      summary: { sessions, conversations, sponsoredMatches, ctaClicks, leads },
+      summary: { widgetLoads, engagedSessions, conversations, sponsoredMatches, ctaClicks, leads },
       recent: recentResult.data,
       sessions: sessionResult.data,
       messages: messageResult.data,
+      reconciliation,
     });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Analytics unavailable" }, { status: 500 });

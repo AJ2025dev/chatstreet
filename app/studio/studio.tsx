@@ -11,10 +11,11 @@ type Campaign = {
 };
 
 type Analytics = {
-  summary: { sessions: number; conversations: number; sponsoredMatches: number; ctaClicks: number; leads: number };
+  summary: { widgetLoads: number; engagedSessions: number; conversations: number; sponsoredMatches: number; ctaClicks: number; leads: number };
   recent: Array<{ id: number; type: string; intent?: string; occurred_at: string; metadata?: Record<string, unknown> }>;
   sessions: Array<{ id: string; publisher: string; demand_platform?: string; page_title?: string; created_at: string }>;
   messages: Array<{ id: number; role: string; intent?: string; sponsored: boolean; model?: string; latency_ms?: number; created_at: string }>;
+  reconciliation: Array<{ date: string; platform: string; publisher: string; lineItemId: string; creativeId: string; placementId: string; insertionOrderId: string; siteId: string; widgetLoads: number; matchedImpressions: number }>;
 };
 
 const blankCampaign: Campaign = {
@@ -92,9 +93,9 @@ export default function Studio() {
 
   if (!token) return <Login onLogin={login} />;
 
-  const embedTag = `<script src="https://chatstreet.theaudiencestreet.com/embed.js" data-campaign="${campaign.id}" data-publisher="ndtv" data-mode="inline" data-demand-platform="gam" data-placement-id="%%PATTERN:placement%%" data-creative-id="%ecid!" data-line-item-id="%eaid!"></script>`;
-  const dv360Tag = `<iframe src="https://chatstreet.theaudiencestreet.com/widget?campaign=${campaign.id}&publisher=dv360&mode=inline&demandPlatform=dv360" width="300" height="430" frameborder="0" scrolling="no"></iframe>`;
-  const metrics = analytics?.summary || { sessions: 0, conversations: 0, sponsoredMatches: 0, ctaClicks: 0, leads: 0 };
+  const embedTag = `<script src="https://chatstreet.theaudiencestreet.com/embed.js" data-campaign="${campaign.id}" data-publisher="YOUR_PUBLISHER" data-mode="inline" data-demand-platform="gam" data-placement-id="%%PATTERN:placement%%" data-line-item-id="%eaid!" data-creative-id="%ecid!" data-ad-unit-id="%%ADUNIT%%" data-impression-id="%%CACHEBUSTER%%"></script>`;
+  const dv360Tag = `<iframe src="https://chatstreet.theaudiencestreet.com/widget?campaign=${campaign.id}&publisher=\${PUBLISHER_ID}&mode=inline&demandPlatform=dv360&lineItemId=\${CAMPAIGN_ID}&creativeId=\${CREATIVE_ID}&impressionId=\${IMPRESSION_ID}&insertionOrderId=\${INSERTION_ORDER_ID}&publisherId=\${PUBLISHER_ID}&siteId=\${UNIVERSAL_SITE_ID}&auctionId=\${AUCTION_ID}" width="300" height="430" frameborder="0" scrolling="no"></iframe>`;
+  const metrics = analytics?.summary || { widgetLoads: 0, engagedSessions: 0, conversations: 0, sponsoredMatches: 0, ctaClicks: 0, leads: 0 };
 
   return <main className="studio-shell">
     <aside className="studio-nav"><Link className="studio-brand" href="/"><span>CS</span><b>ChatStreet.</b></Link>
@@ -110,10 +111,11 @@ export default function Studio() {
       </div></header>
       {error && <div className="studio-alert">{error}<button onClick={() => { sessionStorage.removeItem("chatstreet_admin"); setToken(""); }}>Sign in again</button></div>}
 
-      {tab === "analytics" && <section className="analytics-page"><div className="studio-title"><span>LIVE MEASUREMENT</span><h1>What audiences are asking, now.</h1><p>Production sessions, conversations, sponsor matches and outcomes from GAM, DV360 and direct publisher tags.</p></div>
+      {tab === "analytics" && <section className="analytics-page"><div className="studio-title"><span>LIVE MEASUREMENT</span><h1>What audiences are asking, now.</h1><p>Widget loads are successful ChatStreet renders—not platform impressions. Engaged sessions begin with the first user interaction.</p></div>
         <div className="analytics-cards">{Object.entries(metrics).map(([key, value]) => <article key={key}><small>{key.replace(/([A-Z])/g," $1").toUpperCase()}</small><strong>{value}</strong><span>Campaign lifetime</span></article>)}</div>
-        <div className="analytics-live-grid"><article><div className="panel-head"><div><small>RECENT DELIVERY</small><h2>Sessions</h2></div><span className="live">Live</span></div><div className="event-list">{analytics?.sessions.slice(0,10).map((item) => <div key={item.id}><i/><p><b>{item.publisher || "unknown"}</b><span>{item.page_title || item.demand_platform || "Context unavailable"}</span></p><time>{new Date(item.created_at).toLocaleTimeString()}</time></div>)}</div></article>
+        <div className="analytics-live-grid"><article><div className="panel-head"><div><small>RECENT DELIVERY</small><h2>Widget loads</h2></div><span className="live">Live</span></div><div className="event-list">{analytics?.sessions.slice(0,10).map((item) => <div key={item.id}><i/><p><b>{item.publisher || "unknown"}</b><span>{item.page_title || item.demand_platform || "Context unavailable"}</span></p><time>{new Date(item.created_at).toLocaleTimeString()}</time></div>)}</div></article>
         <article><div className="panel-head"><div><small>ENGAGEMENT STREAM</small><h2>Events</h2></div><span>{analytics?.recent.length || 0} recent</span></div><div className="event-list">{analytics?.recent.slice(0,10).map((item) => <div key={item.id}><i/><p><b>{item.type.replaceAll("_"," ")}</b><span>{item.intent || "No declared intent"}</span></p><time>{new Date(item.occurred_at).toLocaleTimeString()}</time></div>)}</div></article></div>
+        <div className="reconciliation-panel"><div className="panel-head"><div><small>DELIVERY RECONCILIATION</small><h2>Platform dimensions</h2></div><button onClick={() => fetch(`/api/analytics?campaignId=${encodeURIComponent(campaign.id)}&format=csv`, { headers }).then(async (response) => { if (!response.ok) return; const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `chatstreet-${campaign.id}-reconciliation.csv`; anchor.click(); URL.revokeObjectURL(url); })}>Export CSV</button></div><div className="reconciliation-table"><table><thead><tr><th>Date</th><th>Platform</th><th>Publisher</th><th>Line item</th><th>Creative</th><th>Placement/site</th><th>Widget loads</th><th>IDs matched</th></tr></thead><tbody>{analytics?.reconciliation.slice(0,30).map((row) => <tr key={[row.date,row.platform,row.publisher,row.lineItemId,row.creativeId,row.placementId,row.siteId].join("|")}><td>{row.date}</td><td>{row.platform}</td><td>{row.publisher}</td><td>{row.lineItemId || "—"}</td><td>{row.creativeId || "—"}</td><td>{row.placementId || row.siteId || "—"}</td><td>{row.widgetLoads}</td><td>{row.matchedImpressions}</td></tr>)}</tbody></table></div></div>
       </section>}
 
       {tab === "campaign" && <div className="studio-workspace"><section className="studio-editor"><div className="studio-title"><span>CAMPAIGN CONSOLE</span><h1>Build the conversation and its commercial rules.</h1><p>The live article always leads. Sponsorship appears only when the reader’s declared intent matches this brief.</p></div>

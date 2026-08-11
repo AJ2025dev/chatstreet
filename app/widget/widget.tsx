@@ -71,6 +71,7 @@ export default function Widget({ initialQuery = "" }: { initialQuery?: string })
   const [intent, setIntent] = useState("");
   const [liveMode, setLiveMode] = useState<"live" | "fallback" | "checking">("checking");
   const sessionRef = useRef("");
+  const engagedRef = useRef(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const params = useMemo(() => {
@@ -109,6 +110,13 @@ export default function Widget({ initialQuery = "" }: { initialQuery?: string })
         placementId: params.get("placementId") || "",
         creativeId: params.get("creativeId") || "",
         lineItemId: params.get("lineItemId") || "",
+        impressionId: params.get("impressionId") || "",
+        insertionOrderId: params.get("insertionOrderId") || "",
+        publisherId: params.get("publisherId") || "",
+        siteId: params.get("siteId") || "",
+        auctionId: params.get("auctionId") || "",
+        orderId: params.get("orderId") || "",
+        adUnitId: params.get("adUnitId") || "",
         demandPlatform: params.get("demandPlatform") || "",
         type: "unit_loaded",
         metadata: {},
@@ -135,6 +143,13 @@ export default function Widget({ initialQuery = "" }: { initialQuery?: string })
       placementId: params.get("placementId") || "",
       creativeId: params.get("creativeId") || "",
       lineItemId: params.get("lineItemId") || "",
+      impressionId: params.get("impressionId") || "",
+      insertionOrderId: params.get("insertionOrderId") || "",
+      publisherId: params.get("publisherId") || "",
+      siteId: params.get("siteId") || "",
+      auctionId: params.get("auctionId") || "",
+      orderId: params.get("orderId") || "",
+      adUnitId: params.get("adUnitId") || "",
       demandPlatform: params.get("demandPlatform") || "",
       type,
       intent,
@@ -148,9 +163,16 @@ export default function Widget({ initialQuery = "" }: { initialQuery?: string })
     window.parent?.postMessage({ source: "chatstreet", type: "event", event: type, payload }, "*");
   };
 
+  const engage = () => {
+    if (engagedRef.current) return;
+    engagedRef.current = true;
+    track("engagement_start");
+  };
+
   const send = async (text: string) => {
     const clean = text.trim();
     if (!clean || loading) return;
+    engage();
     const nextMessages = [...messages, { role: "user" as const, text: clean }];
     setMessages(nextMessages);
     setInput("");
@@ -237,7 +259,7 @@ export default function Widget({ initialQuery = "" }: { initialQuery?: string })
 
   if (!open) {
     return (
-      <button className="cs-launcher" style={theme} onClick={() => { setOpen(true); track("unit_opened"); }}>
+      <button className="cs-launcher" style={theme} onClick={() => { setOpen(true); engage(); track("unit_opened"); }}>
         <span>✦</span><b>{campaign.assistantName}</b><i>AI</i>
       </button>
     );

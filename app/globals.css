@@ -282,11 +282,17 @@ button { cursor: pointer; }
 .platform-table > div:last-child { border-bottom: 0; }
 .platform-table em { width: fit-content; padding: 5px 7px; border-radius: 100px; background: #e7edcd; color: #647a21; font-size: 8px; font-style: normal; }
 .delivery-note { color: #7a847e; font-size: 9px; line-height: 1.55; }
-.analytics-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.analytics-cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
 .analytics-cards article { padding: 18px; display: flex; flex-direction: column; gap: 8px; border: 1px solid #d5dad2; border-radius: 13px; background: #fbfaf6; }
 .analytics-cards small { color: #738078; font-size: 8px; font-weight: 800; }
 .analytics-cards strong { font-family: Georgia, serif; font-size: 30px; font-weight: 500; }
 .analytics-cards span { color: #7b8d47; font-size: 8px; line-height: 1.4; }
+.reconciliation-panel { margin-top: 12px; padding: 20px; border: 1px solid #d5dad2; border-radius: 13px; background: #fbfaf6; }
+.reconciliation-panel .panel-head button { padding: 9px 12px; border: 0; border-radius: 8px; background: var(--forest); color: white; font-size: 9px; font-weight: 800; }
+.reconciliation-table { overflow-x: auto; }
+.reconciliation-table table { width: 100%; border-collapse: collapse; font-size: 9px; }
+.reconciliation-table th, .reconciliation-table td { padding: 10px 8px; border-bottom: 1px solid #e1e4dd; text-align: left; white-space: nowrap; }
+.reconciliation-table th { color: #75827b; font-size: 7px; letter-spacing: .06em; text-transform: uppercase; }
 .analytics-empty { margin-top: 13px; padding: 25px; display: flex; align-items: center; gap: 16px; border: 1px solid #d5dad2; border-radius: 14px; background: #fbfaf6; }
 .analytics-empty > span { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 12px; background: #e8efc8; color: #667d1f; font-size: 20px; }
 .analytics-empty > div { margin-right: auto; }
