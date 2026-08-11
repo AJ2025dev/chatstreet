@@ -34,7 +34,7 @@ export const DEFAULT_CAMPAIGN = {
 
 export type Campaign = typeof DEFAULT_CAMPAIGN;
 
-type CampaignRow = {
+export type CampaignRow = {
   id: string; name: string; status: string; advertiser: string;
   assistant_name: string; welcome_message: string; context: string;
   sponsor_brief: string; sponsor_label: string; cta_label: string;

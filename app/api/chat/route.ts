@@ -94,11 +94,15 @@ export async function POST(request: Request) {
     .slice(-8)
     .map((item: ChatMessage) => `${item.role}: ${cleanString(item.text, 800)}`)
     .join("\n");
+  const pageTitle = cleanString(body.pageTitle, 300);
+  const pageContext = cleanString(body.pageContext, 6000);
   const instructions = `You are ChatStreet, a concise contextual assistant embedded on a publisher page.
-First answer the user's genuine question using the supplied publisher context. Advertising must never distort the answer.
+First answer the user's genuine question using the live article context. If the article context does not contain the answer, say so briefly instead of guessing. Advertising must never distort the answer.
 Then decide whether the declared intent genuinely matches the sponsor brief. Never infer sensitive traits. Never fabricate facts, prices, availability or comparative claims.
 If relevant, include one clearly separated sponsored recommendation. If not relevant, set sponsored.show false.
-Publisher context: ${campaign.context}
+Campaign context: ${campaign.context}
+Live article title: ${pageTitle || "Unavailable"}
+Live article text: ${pageContext || "Unavailable; rely only on campaign context and the user's declared question."}
 Sponsor brief: ${campaign.sponsorBrief}
 Return valid JSON matching the requested schema.`;
 
@@ -149,6 +153,7 @@ Return valid JSON matching the requested schema.`;
     }),
   });
   if (!response.ok) {
+    console.error("ChatStreet OpenAI request failed", { status: response.status, model: getModel() });
     const result = fallback(message, campaign.advertiser);
     await persistMessage("assistant", result.answer, { intent: result.intent, sponsored: result.sponsored.show });
     return json({ ...result, mode: "fallback", upstreamStatus: response.status });
@@ -164,6 +169,7 @@ Return valid JSON matching the requested schema.`;
     });
     return json({ ...result, mode: "live", model: getModel() });
   } catch {
+    console.error("ChatStreet OpenAI response was not valid structured JSON", { model: getModel() });
     const result = fallback(message, campaign.advertiser);
     await persistMessage("assistant", result.answer, { intent: result.intent, sponsored: result.sponsored.show });
     return json(result);

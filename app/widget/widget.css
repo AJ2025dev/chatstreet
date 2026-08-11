@@ -6,8 +6,8 @@ button { cursor: pointer; }
 .cs-widget {
   --cs-accent: #d9ff63;
   --cs-surface: #173f32;
-  width: min(100%, 410px);
-  height: min(650px, calc(100vh - 4px));
+  width: min(100%, 760px);
+  height: min(610px, calc(100vh - 4px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -19,9 +19,10 @@ button { cursor: pointer; }
   box-shadow: 0 28px 80px rgba(8, 27, 20, .32);
   animation: cs-enter .32s cubic-bezier(.2,.8,.2,1) both;
 }
-.cs-widget.cs-inline { margin: auto; height: 600px; box-shadow: 0 20px 60px rgba(8,27,20,.18); }
+.cs-widget.cs-inline { margin: auto; height: 430px; box-shadow: 0 20px 60px rgba(8,27,20,.18); }
+.cs-widget.cs-inline.cs-engaged { height: 610px; }
 @keyframes cs-enter { from { opacity: 0; transform: translateY(14px) scale(.98); } }
-.cs-head { min-height: 73px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,.1); }
+.cs-head { min-height: 62px; padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,.1); }
 .cs-identity { display: flex; align-items: center; gap: 11px; }
 .cs-identity > span { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: var(--cs-accent); color: var(--cs-surface); font-size: 17px; }
 .cs-identity div { display: flex; flex-direction: column; gap: 3px; }
@@ -30,7 +31,7 @@ button { cursor: pointer; }
 .cs-head-actions { display: flex; align-items: center; gap: 8px; }
 .cs-head-actions i { padding: 5px 7px; border-radius: 100px; background: rgba(255,255,255,.08); color: #b7c9c0; font-size: 8px; font-style: normal; font-weight: 800; letter-spacing: .08em; }
 .cs-head-actions button { width: 30px; height: 30px; border: 1px solid rgba(255,255,255,.14); border-radius: 50%; background: transparent; color: white; }
-.cs-body { flex: 1; min-height: 0; overflow: auto; padding: 16px; scrollbar-width: thin; }
+.cs-body { flex: 1; min-height: 0; overflow: auto; padding: 14px 15px; scrollbar-width: thin; overscroll-behavior: contain; }
 .cs-context { width: fit-content; margin-bottom: 13px; padding: 6px 9px; border-radius: 100px; background: rgba(255,255,255,.07); color: #b9cbc2; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
 .cs-context span { display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: #71d472; }
 .cs-message { margin-bottom: 10px; animation: cs-message .22s ease-out both; }
@@ -76,8 +77,28 @@ button { cursor: pointer; }
 .cs-launcher > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--cs-accent); color: var(--cs-surface); }
 .cs-launcher b { font-size: 12px; }.cs-launcher i { margin-left: auto; color: #aac0b6; font-size: 8px; font-style: normal; }
 @media (max-width: 440px) {
-  .cs-widget { width: 100%; height: 100vh; border: 0; border-radius: 0; }
-  .cs-widget.cs-inline { height: 100vh; }
+  .cs-widget { width: 100%; height: min(610px, 100vh); border-radius: 0; box-shadow: none; }
+  .cs-widget.cs-inline { height: 430px; border: 0; }
+  .cs-widget.cs-inline.cs-engaged { height: min(610px, 100vh); }
+  .cs-head { min-height: 56px; padding: 10px 12px; }
+  .cs-identity > span { width: 32px; height: 32px; }
+  .cs-body { padding: 12px; }
+  .cs-context { margin-bottom: 10px; }
+  .cs-message > p { font-size: 12px; line-height: 1.45; }
+  .cs-assistant > p { padding: 11px 12px; }
+  .cs-prompts { display: grid; margin-top: 10px; }
+  .cs-prompts button { width: 100%; padding: 9px 11px; text-align: left; }
+  .cs-compose { margin: 0 9px; }
+  .cs-widget footer { padding: 8px 11px 9px; }
+}
+@media (min-width: 620px) {
+  .cs-widget.cs-inline { border-radius: 22px; }
+  .cs-widget.cs-inline .cs-prompts { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .cs-widget.cs-inline .cs-prompts button { border-radius: 12px; text-align: left; }
+  .cs-widget.cs-inline.cs-engaged .cs-body { padding-inline: 22px; }
+  .cs-widget.cs-inline.cs-engaged .cs-message { max-width: 78%; }
+  .cs-widget.cs-inline.cs-engaged .cs-user { margin-left: auto; }
+  .cs-widget.cs-inline.cs-engaged .cs-sponsor { max-width: 520px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *:before, *:after { animation-duration: .01ms !important; scroll-behavior: auto !important; }

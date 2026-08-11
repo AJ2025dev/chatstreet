@@ -1,4 +1,4 @@
-import { DEFAULT_CAMPAIGN, campaignFromRow, cleanString, getCampaign, json } from "../../../lib/chatstreet";
+import { DEFAULT_CAMPAIGN, campaignFromRow, cleanString, getCampaign, json, type CampaignRow } from "../../../lib/chatstreet";
 import { hasSupabase, supabaseRest } from "../../../lib/supabase";
 
 export function OPTIONS() {
@@ -6,7 +6,20 @@ export function OPTIONS() {
 }
 
 export async function GET(request: Request) {
-  const id = new URL(request.url).searchParams.get("id") || DEFAULT_CAMPAIGN.id;
+  const url = new URL(request.url);
+  if (url.searchParams.get("list") === "1") {
+    const adminToken = process.env.CHATSTREET_ADMIN_TOKEN;
+    if (!adminToken || request.headers.get("authorization") !== `Bearer ${adminToken}`) {
+      return json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      const { data } = await supabaseRest<CampaignRow[]>("campaigns?select=*&order=updated_at.desc", {}, { admin: true });
+      return json({ campaigns: data.map(campaignFromRow) });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Unable to list campaigns" }, { status: 500 });
+    }
+  }
+  const id = url.searchParams.get("id") || DEFAULT_CAMPAIGN.id;
   return json({ campaign: await getCampaign(id) });
 }
 
@@ -49,7 +62,7 @@ export async function POST(request: Request) {
     updated_at: new Date().toISOString(),
   };
   try {
-    const { data } = await supabaseRest<any[]>("campaigns?on_conflict=id&select=*", {
+    const { data } = await supabaseRest<CampaignRow[]>("campaigns?on_conflict=id&select=*", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=representation" },
       body: JSON.stringify(payload),

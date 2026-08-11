@@ -82,6 +82,8 @@ export default function Widget() {
   const campaignId = params.get("campaign") || fallbackCampaign.id;
   const publisher = params.get("publisher") || "demo-publisher";
   const mode = params.get("mode") || "floating";
+  const pageTitle = params.get("pageTitle") || "this article";
+  const pageContext = params.get("pageContext") || "";
 
   useEffect(() => {
     sessionRef.current =
@@ -91,8 +93,8 @@ export default function Widget() {
       .then(({ campaign: next }) => {
         if (!next) return;
         setCampaign(next);
-        setMessages([{ role: "assistant", text: next.welcomeMessage }]);
-        setPrompts(safePrompts(next.starterPrompts));
+        setMessages([{ role: "assistant", text: pageTitle && pageTitle !== "this article" ? `I’m ready to discuss “${pageTitle.slice(0, 90)}”. Ask me what matters.` : next.welcomeMessage }]);
+        setPrompts(pageContext ? ["Summarize this article", "What matters most?", "How could this affect me?"] : safePrompts(next.starterPrompts));
       })
       .catch(() => {
         setMessages([{ role: "assistant", text: fallbackCampaign.welcomeMessage }]);
@@ -107,6 +109,10 @@ export default function Widget() {
         publisher,
         pageUrl: params.get("pageUrl") || "",
         pageTitle: params.get("pageTitle") || "",
+        placementId: params.get("placementId") || "",
+        creativeId: params.get("creativeId") || "",
+        lineItemId: params.get("lineItemId") || "",
+        demandPlatform: params.get("demandPlatform") || "",
         type: "unit_loaded",
         metadata: {},
       }),
@@ -117,7 +123,7 @@ export default function Widget() {
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
     window.parent?.postMessage(
-      { source: "chatstreet", type: "resize", open, height: open ? 650 : 74 },
+      { source: "chatstreet", type: "resize", open, height: open ? (messages.length > 1 || loading || leadOpen ? 610 : 430) : 74 },
       "*",
     );
   }, [messages, loading, open, leadOpen]);
@@ -129,6 +135,10 @@ export default function Widget() {
       publisher,
       pageUrl: params.get("pageUrl") || "",
       pageTitle: params.get("pageTitle") || "",
+      placementId: params.get("placementId") || "",
+      creativeId: params.get("creativeId") || "",
+      lineItemId: params.get("lineItemId") || "",
+      demandPlatform: params.get("demandPlatform") || "",
       type,
       intent,
       metadata: extra,
@@ -159,6 +169,8 @@ export default function Widget() {
           campaignId,
           message: clean,
           history: nextMessages.slice(-8),
+          pageTitle,
+          pageContext,
         }),
       });
       const data = await response.json();
@@ -235,7 +247,7 @@ export default function Widget() {
   }
 
   return (
-    <section className={`cs-widget ${mode === "inline" ? "cs-inline" : ""}`} style={theme}>
+    <section className={`cs-widget ${mode === "inline" ? "cs-inline" : ""} ${messages.length > 1 ? "cs-engaged" : "cs-idle"}`} style={theme}>
       <header className="cs-head">
         <div className="cs-identity"><span>✦</span><div><b>{campaign.assistantName}</b><small>Understands this page</small></div></div>
         <div className="cs-head-actions">
@@ -247,7 +259,7 @@ export default function Widget() {
       {!leadOpen ? (
         <>
           <div className="cs-body" ref={bodyRef} aria-live="polite">
-            <div className="cs-context"><span /> Context from this article is ready</div>
+            <div className="cs-context"><span /> {pageContext ? "Live article context ready" : "Campaign context ready"}</div>
             {messages.map((message, index) => (
               <div key={index} className={`cs-message cs-${message.role}`}>
                 <p>{message.text}</p>
