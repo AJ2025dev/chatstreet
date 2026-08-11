@@ -3,8 +3,10 @@ import { hasSupabase, supabaseRest } from "../../../lib/supabase";
 
 type ChatMessage = { role: "user" | "assistant"; text: string };
 
-function fallback(message: string, advertiser: string) {
+function fallback(message: string, advertiser: string, pageTitle = "", pageContext = "") {
   const lower = message.toLowerCase();
+  const article = pageContext.replace(/\s+/g, " ").trim();
+  const articleRelevantToSponsor = /\b(ev|electric vehicle|charging|battery|petrol|commute|car|vehicle)\b/i.test(`${message} ${article}`);
   const intent = lower.includes("charg")
     ? "charging"
     : lower.includes("cost") || lower.includes("petrol") || lower.includes("sav")
@@ -14,7 +16,7 @@ function fallback(message: string, advertiser: string) {
         : lower.includes("commut")
           ? "daily commute"
           : "EV consideration";
-  const answer =
+  const campaignAnswer =
     intent === "charging"
       ? "If you have dedicated parking, overnight AC charging will usually cover daily city use. Public fast charging is most useful as a top-up for longer journeys."
       : intent === "ownership cost"
@@ -22,12 +24,18 @@ function fallback(message: string, advertiser: string) {
         : intent === "EV range"
           ? "For mostly urban driving, dependable real-world range and charging access matter more than the largest advertised number. Frequent intercity travel increases the buffer you need."
           : "Start with your daily distance, overnight charging access and occasional long trips. Those three facts usually narrow the right EV profile quickly.";
+  const excerpt = article.slice(0, 460).replace(/\s+\S*$/, "");
+  const answer = article && !articleRelevantToSponsor
+    ? /summari[sz]e|what.*about|main point/i.test(lower)
+      ? `${pageTitle ? `${pageTitle}: ` : ""}${excerpt}${article.length > excerpt.length ? "…" : ""}`
+      : `Based on this article, ${excerpt.charAt(0).toLowerCase()}${excerpt.slice(1)}${article.length > excerpt.length ? "…" : ""}`
+    : campaignAnswer;
   return {
     answer,
     intent,
     confidence: 0.78,
     sponsored: {
-      show: true,
+      show: articleRelevantToSponsor,
       label: "Sponsored match",
       advertiser,
       message: `${advertiser} is one relevant option, with 410 km certified range, an 8-year battery warranty and home-charger assessment.`,
@@ -60,6 +68,8 @@ export async function POST(request: Request) {
   const message = cleanString(body.message, 1000);
   if (!message) return json({ error: "message is required" }, { status: 400 });
   const campaign = await getCampaign(cleanString(body.campaignId, 80) || DEFAULT_CAMPAIGN.id);
+  const pageTitle = cleanString(body.pageTitle, 300);
+  const pageContext = cleanString(body.pageContext, 6000);
   const sessionId = cleanString(body.sessionId, 120);
   const persistMessage = async (role: "user" | "assistant", content: string, details: Record<string, unknown> = {}) => {
     if (!hasSupabase() || !sessionId) return;
@@ -85,7 +95,8 @@ export async function POST(request: Request) {
   await persistMessage("user", message);
   const apiKey = getOpenAIKey();
   if (!apiKey) {
-    const result = fallback(message, campaign.advertiser);
+    console.error("ChatStreet OpenAI key is unavailable in this deployment");
+    const result = fallback(message, campaign.advertiser, pageTitle, pageContext);
     await persistMessage("assistant", result.answer, { intent: result.intent, sponsored: result.sponsored.show });
     return json(result);
   }
@@ -94,8 +105,6 @@ export async function POST(request: Request) {
     .slice(-8)
     .map((item: ChatMessage) => `${item.role}: ${cleanString(item.text, 800)}`)
     .join("\n");
-  const pageTitle = cleanString(body.pageTitle, 300);
-  const pageContext = cleanString(body.pageContext, 6000);
   const instructions = `You are ChatStreet, a concise contextual assistant embedded on a publisher page.
 First answer the user's genuine question using the live article context. If the article context does not contain the answer, say so briefly instead of guessing. Advertising must never distort the answer.
 Then decide whether the declared intent genuinely matches the sponsor brief. Never infer sensitive traits. Never fabricate facts, prices, availability or comparative claims.
@@ -154,7 +163,7 @@ Return valid JSON matching the requested schema.`;
   });
   if (!response.ok) {
     console.error("ChatStreet OpenAI request failed", { status: response.status, model: getModel() });
-    const result = fallback(message, campaign.advertiser);
+    const result = fallback(message, campaign.advertiser, pageTitle, pageContext);
     await persistMessage("assistant", result.answer, { intent: result.intent, sponsored: result.sponsored.show });
     return json({ ...result, mode: "fallback", upstreamStatus: response.status });
   }
@@ -170,7 +179,7 @@ Return valid JSON matching the requested schema.`;
     return json({ ...result, mode: "live", model: getModel() });
   } catch {
     console.error("ChatStreet OpenAI response was not valid structured JSON", { model: getModel() });
-    const result = fallback(message, campaign.advertiser);
+    const result = fallback(message, campaign.advertiser, pageTitle, pageContext);
     await persistMessage("assistant", result.answer, { intent: result.intent, sponsored: result.sponsored.show });
     return json(result);
   }
