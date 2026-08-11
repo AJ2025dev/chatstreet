@@ -1,4 +1,5 @@
 import { DEFAULT_CAMPAIGN, cleanString, getCampaign, getModel, getOpenAIKey, json } from "../../../lib/chatstreet";
+import { hasSupabase, supabaseRest } from "../../../lib/supabase";
 
 type ChatMessage = { role: "user" | "assistant"; text: string };
 
@@ -59,8 +60,35 @@ export async function POST(request: Request) {
   const message = cleanString(body.message, 1000);
   if (!message) return json({ error: "message is required" }, { status: 400 });
   const campaign = await getCampaign(cleanString(body.campaignId, 80) || DEFAULT_CAMPAIGN.id);
+  const sessionId = cleanString(body.sessionId, 120);
+  const persistMessage = async (role: "user" | "assistant", content: string, details: Record<string, unknown> = {}) => {
+    if (!hasSupabase() || !sessionId) return;
+    try {
+      await supabaseRest("messages", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          campaign_id: campaign.id,
+          role,
+          content,
+          intent: details.intent || null,
+          sponsored: details.sponsored === true,
+          model: details.model || null,
+          latency_ms: details.latencyMs || null,
+        }),
+      });
+    } catch {
+      // Chat delivery must continue if analytics storage is temporarily unavailable.
+    }
+  };
+  await persistMessage("user", message);
   const apiKey = getOpenAIKey();
-  if (!apiKey) return json(fallback(message, campaign.advertiser));
+  if (!apiKey) {
+    const result = fallback(message, campaign.advertiser);
+    await persistMessage("assistant", result.answer, { intent: result.intent, sponsored: result.sponsored.show });
+    return json(result);
+  }
 
   const history = (Array.isArray(body.history) ? body.history : [])
     .slice(-8)
@@ -74,6 +102,7 @@ Publisher context: ${campaign.context}
 Sponsor brief: ${campaign.sponsorBrief}
 Return valid JSON matching the requested schema.`;
 
+  const startedAt = Date.now();
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -120,12 +149,23 @@ Return valid JSON matching the requested schema.`;
     }),
   });
   if (!response.ok) {
-    return json({ ...fallback(message, campaign.advertiser), mode: "fallback", upstreamStatus: response.status });
+    const result = fallback(message, campaign.advertiser);
+    await persistMessage("assistant", result.answer, { intent: result.intent, sponsored: result.sponsored.show });
+    return json({ ...result, mode: "fallback", upstreamStatus: response.status });
   }
   const payload = (await response.json()) as Record<string, unknown>;
   try {
-    return json({ ...JSON.parse(extractText(payload)), mode: "live", model: getModel() });
+    const result = JSON.parse(extractText(payload));
+    await persistMessage("assistant", result.answer, {
+      intent: result.intent,
+      sponsored: result.sponsored?.show === true,
+      model: getModel(),
+      latencyMs: Date.now() - startedAt,
+    });
+    return json({ ...result, mode: "live", model: getModel() });
   } catch {
-    return json(fallback(message, campaign.advertiser));
+    const result = fallback(message, campaign.advertiser);
+    await persistMessage("assistant", result.answer, { intent: result.intent, sponsored: result.sponsored.show });
+    return json(result);
   }
 }

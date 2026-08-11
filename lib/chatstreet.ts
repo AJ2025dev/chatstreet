@@ -1,6 +1,4 @@
-import { eq } from "drizzle-orm";
-import { getDb } from "../db";
-import { campaigns } from "../db/schema";
+import { hasSupabase, supabaseRest } from "./supabase";
 
 export const DEFAULT_CAMPAIGN = {
   id: "aera-x-2026",
@@ -36,13 +34,31 @@ export const DEFAULT_CAMPAIGN = {
 
 export type Campaign = typeof DEFAULT_CAMPAIGN;
 
+type CampaignRow = {
+  id: string; name: string; status: string; advertiser: string;
+  assistant_name: string; welcome_message: string; context: string;
+  sponsor_brief: string; sponsor_label: string; cta_label: string;
+  cta_url: string; accent: string; surface: string;
+  starter_prompts: unknown; intent_rules: unknown;
+  created_at: string; updated_at: string;
+};
+
+export function campaignFromRow(row: CampaignRow): Campaign {
+  return {
+    id: row.id, name: row.name, status: row.status, advertiser: row.advertiser,
+    assistantName: row.assistant_name, welcomeMessage: row.welcome_message,
+    context: row.context, sponsorBrief: row.sponsor_brief, sponsorLabel: row.sponsor_label,
+    ctaLabel: row.cta_label, ctaUrl: row.cta_url, accent: row.accent, surface: row.surface,
+    starterPrompts: JSON.stringify(row.starter_prompts || []),
+    intentRules: JSON.stringify(row.intent_rules || []),
+  };
+}
+
 export async function getCampaign(id = DEFAULT_CAMPAIGN.id): Promise<Campaign> {
+  if (!hasSupabase()) return DEFAULT_CAMPAIGN;
   try {
-    const db = getDb();
-    const [row] = await db.select().from(campaigns).where(eq(campaigns.id, id)).limit(1);
-    if (row) return row as Campaign;
-    await db.insert(campaigns).values(DEFAULT_CAMPAIGN).onConflictDoNothing();
-    return DEFAULT_CAMPAIGN;
+    const { data } = await supabaseRest<CampaignRow[]>(`campaigns?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
+    return data[0] ? campaignFromRow(data[0]) : DEFAULT_CAMPAIGN;
   } catch {
     return DEFAULT_CAMPAIGN;
   }

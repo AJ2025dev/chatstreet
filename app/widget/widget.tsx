@@ -155,6 +155,7 @@ export default function Widget() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          sessionId: sessionRef.current,
           campaignId,
           message: clean,
           history: nextMessages.slice(-8),
