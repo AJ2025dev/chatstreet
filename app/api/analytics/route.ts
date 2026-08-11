@@ -11,19 +11,27 @@ export async function GET(request: Request) {
   }
   const url = new URL(request.url);
   const campaignId = url.searchParams.get("campaignId") || DEFAULT_CAMPAIGN.id;
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  const toExclusive = to && datePattern.test(to) ? new Date(`${to}T00:00:00.000Z`) : null;
+  if (toExclusive) toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
   try {
+    const range = `${from && datePattern.test(from) ? `&created_at=gte.${from}T00:00:00.000Z` : ""}${toExclusive ? `&created_at=lt.${toExclusive.toISOString()}` : ""}`;
+    const eventRange = `${from && datePattern.test(from) ? `&occurred_at=gte.${from}T00:00:00.000Z` : ""}${toExclusive ? `&occurred_at=lt.${toExclusive.toISOString()}` : ""}`;
     const filter = `campaign_id=eq.${encodeURIComponent(campaignId)}`;
-    const [widgetLoads, engagedSessions, conversations, sponsoredMatches, ctaClicks, leads, recentResult, sessionResult, messageResult, deliveryResult] = await Promise.all([
-      supabaseCount(`sessions?select=id&${filter}`),
-      supabaseCount(`events?select=id&${filter}&type=eq.engagement_start`),
-      supabaseCount(`events?select=id&${filter}&type=eq.message_sent`),
-      supabaseCount(`events?select=id&${filter}&type=eq.sponsored_match`),
-      supabaseCount(`events?select=id&${filter}&type=eq.cta_click`),
-      supabaseCount(`leads?select=id&${filter}`),
-      supabaseRest<unknown[]>(`events?select=id,session_id,type,intent,value,metadata,occurred_at&${filter}&order=occurred_at.desc&limit=20`, {}, { admin: true }),
-      supabaseRest<unknown[]>(`sessions?select=id,publisher,placement_id,creative_id,line_item_id,demand_platform,page_url,page_title,impression_id,insertion_order_id,platform_publisher_id,site_id,auction_id,order_id,ad_unit_id,created_at&${filter}&order=created_at.desc&limit=20`, {}, { admin: true }),
-      supabaseRest<unknown[]>(`messages?select=id,session_id,role,intent,sponsored,model,latency_ms,created_at&${filter}&order=created_at.desc&limit=20`, {}, { admin: true }),
-      supabaseRest<Array<Record<string, unknown>>>(`sessions?select=id,publisher,placement_id,creative_id,line_item_id,demand_platform,impression_id,insertion_order_id,site_id,created_at&${filter}&order=created_at.desc&limit=5000`, {}, { admin: true }),
+    const [widgetLoads, trackedImpressions, engagedSessions, conversations, sponsoredMatches, ctaClicks, leads, recentResult, sessionResult, messageResult, deliveryResult] = await Promise.all([
+      supabaseCount(`sessions?select=id&${filter}${range}`),
+      supabaseCount(`sessions?select=id&${filter}&impression_id=not.is.null${range}`),
+      supabaseCount(`events?select=id&${filter}&type=eq.engagement_start${eventRange}`),
+      supabaseCount(`events?select=id&${filter}&type=eq.message_sent${eventRange}`),
+      supabaseCount(`events?select=id&${filter}&type=eq.sponsored_match${eventRange}`),
+      supabaseCount(`events?select=id&${filter}&type=eq.cta_click${eventRange}`),
+      supabaseCount(`leads?select=id&${filter}${range}`),
+      supabaseRest<unknown[]>(`events?select=id,session_id,type,intent,value,metadata,occurred_at&${filter}${eventRange}&order=occurred_at.desc&limit=20`, {}, { admin: true }),
+      supabaseRest<unknown[]>(`sessions?select=id,publisher,placement_id,creative_id,line_item_id,demand_platform,page_url,page_title,impression_id,insertion_order_id,platform_publisher_id,site_id,auction_id,order_id,ad_unit_id,created_at&${filter}${range}&order=created_at.desc&limit=20`, {}, { admin: true }),
+      supabaseRest<unknown[]>(`messages?select=id,session_id,role,intent,sponsored,model,latency_ms,created_at&${filter}${range}&order=created_at.desc&limit=20`, {}, { admin: true }),
+      supabaseRest<Array<Record<string, unknown>>>(`sessions?select=id,publisher,placement_id,creative_id,line_item_id,demand_platform,impression_id,insertion_order_id,site_id,created_at&${filter}${range}&order=created_at.desc&limit=5000`, {}, { admin: true }),
     ]);
     const delivery = new Map<string, { date: string; platform: string; publisher: string; lineItemId: string; creativeId: string; placementId: string; insertionOrderId: string; siteId: string; widgetLoads: number; matchedImpressions: number }>();
     for (const row of deliveryResult.data) {
@@ -49,7 +57,7 @@ export async function GET(request: Request) {
       return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="chatstreet-${campaignId}-reconciliation.csv"`, "Cache-Control": "no-store" } });
     }
     return json({
-      summary: { widgetLoads, engagedSessions, conversations, sponsoredMatches, ctaClicks, leads },
+      summary: { widgetLoads, trackedImpressions, engagedSessions, conversations, sponsoredMatches, ctaClicks, leads },
       recent: recentResult.data,
       sessions: sessionResult.data,
       messages: messageResult.data,

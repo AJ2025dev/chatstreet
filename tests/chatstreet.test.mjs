@@ -30,4 +30,6 @@ test("analytics exposes reconciliation dimensions and CSV export", async () => {
   assert.match(source, /matchedImpressions/);
   assert.match(source, /format.*csv/);
   assert.match(source, /text\/csv/);
+  assert.match(source, /trackedImpressions/);
+  assert.match(source, /datePattern/);
 });

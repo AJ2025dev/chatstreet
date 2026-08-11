@@ -11,7 +11,7 @@ type Campaign = {
 };
 
 type Analytics = {
-  summary: { widgetLoads: number; engagedSessions: number; conversations: number; sponsoredMatches: number; ctaClicks: number; leads: number };
+  summary: { widgetLoads: number; trackedImpressions: number; engagedSessions: number; conversations: number; sponsoredMatches: number; ctaClicks: number; leads: number };
   recent: Array<{ id: number; type: string; intent?: string; occurred_at: string; metadata?: Record<string, unknown> }>;
   sessions: Array<{ id: string; publisher: string; demand_platform?: string; page_title?: string; created_at: string }>;
   messages: Array<{ id: number; role: string; intent?: string; sponsored: boolean; model?: string; latency_ms?: number; created_at: string }>;
@@ -47,6 +47,8 @@ export default function Studio() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [fromDate, setFromDate] = useState(() => { const date = new Date(); date.setDate(date.getDate() - 6); return date.toISOString().slice(0, 10); });
+  const [toDate, setToDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
     const timer = window.setTimeout(() => setToken(sessionStorage.getItem("chatstreet_admin") || ""), 0);
@@ -66,9 +68,9 @@ export default function Studio() {
 
   const loadAnalytics = useCallback(async (id: string) => {
     if (!token || !id) return;
-    const response = await fetch(`/api/analytics?campaignId=${encodeURIComponent(id)}`, { headers, cache: "no-store" });
+    const response = await fetch(`/api/analytics?campaignId=${encodeURIComponent(id)}&from=${fromDate}&to=${toDate}`, { headers, cache: "no-store" });
     if (response.ok) setAnalytics(await response.json());
-  }, [headers, token]);
+  }, [fromDate, headers, toDate, token]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => load().catch(() => setError("Studio could not reach the campaign service.")), 0);
@@ -95,7 +97,7 @@ export default function Studio() {
 
   const embedTag = `<script src="https://chatstreet.theaudiencestreet.com/embed.js" data-campaign="${campaign.id}" data-publisher="YOUR_PUBLISHER" data-mode="inline" data-demand-platform="gam" data-placement-id="%%PATTERN:placement%%" data-line-item-id="%eaid!" data-creative-id="%ecid!" data-ad-unit-id="%%ADUNIT%%" data-impression-id="%%CACHEBUSTER%%"></script>`;
   const dv360Tag = `<iframe src="https://chatstreet.theaudiencestreet.com/widget?campaign=${campaign.id}&publisher=\${PUBLISHER_ID}&mode=inline&demandPlatform=dv360&lineItemId=\${CAMPAIGN_ID}&creativeId=\${CREATIVE_ID}&impressionId=\${IMPRESSION_ID}&insertionOrderId=\${INSERTION_ORDER_ID}&publisherId=\${PUBLISHER_ID}&siteId=\${UNIVERSAL_SITE_ID}&auctionId=\${AUCTION_ID}" width="300" height="430" frameborder="0" scrolling="no"></iframe>`;
-  const metrics = analytics?.summary || { widgetLoads: 0, engagedSessions: 0, conversations: 0, sponsoredMatches: 0, ctaClicks: 0, leads: 0 };
+  const metrics = analytics?.summary || { widgetLoads: 0, trackedImpressions: 0, engagedSessions: 0, conversations: 0, sponsoredMatches: 0, ctaClicks: 0, leads: 0 };
 
   return <main className="studio-shell">
     <aside className="studio-nav"><Link className="studio-brand" href="/"><span>CS</span><b>ChatStreet.</b></Link>
@@ -111,11 +113,11 @@ export default function Studio() {
       </div></header>
       {error && <div className="studio-alert">{error}<button onClick={() => { sessionStorage.removeItem("chatstreet_admin"); setToken(""); }}>Sign in again</button></div>}
 
-      {tab === "analytics" && <section className="analytics-page"><div className="studio-title"><span>LIVE MEASUREMENT</span><h1>What audiences are asking, now.</h1><p>Widget loads are successful ChatStreet renders—not platform impressions. Engaged sessions begin with the first user interaction.</p></div>
+      {tab === "analytics" && <section className="analytics-page"><div className="studio-title"><span>LIVE MEASUREMENT</span><h1>What audiences are asking, now.</h1><p>Tracked impressions contain a platform impression/cachebuster ID. Widget loads are successful ChatStreet renders. Publisher-reported impressions will be added through report import.</p></div><div className="analytics-filters"><label>From<input type="date" value={fromDate} max={toDate} onChange={(event) => setFromDate(event.target.value)} /></label><label>To<input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} /></label><span>Showing {fromDate} through {toDate}</span></div>
         <div className="analytics-cards">{Object.entries(metrics).map(([key, value]) => <article key={key}><small>{key.replace(/([A-Z])/g," $1").toUpperCase()}</small><strong>{value}</strong><span>Campaign lifetime</span></article>)}</div>
         <div className="analytics-live-grid"><article><div className="panel-head"><div><small>RECENT DELIVERY</small><h2>Widget loads</h2></div><span className="live">Live</span></div><div className="event-list">{analytics?.sessions.slice(0,10).map((item) => <div key={item.id}><i/><p><b>{item.publisher || "unknown"}</b><span>{item.page_title || item.demand_platform || "Context unavailable"}</span></p><time>{new Date(item.created_at).toLocaleTimeString()}</time></div>)}</div></article>
         <article><div className="panel-head"><div><small>ENGAGEMENT STREAM</small><h2>Events</h2></div><span>{analytics?.recent.length || 0} recent</span></div><div className="event-list">{analytics?.recent.slice(0,10).map((item) => <div key={item.id}><i/><p><b>{item.type.replaceAll("_"," ")}</b><span>{item.intent || "No declared intent"}</span></p><time>{new Date(item.occurred_at).toLocaleTimeString()}</time></div>)}</div></article></div>
-        <div className="reconciliation-panel"><div className="panel-head"><div><small>DELIVERY RECONCILIATION</small><h2>Platform dimensions</h2></div><button onClick={() => fetch(`/api/analytics?campaignId=${encodeURIComponent(campaign.id)}&format=csv`, { headers }).then(async (response) => { if (!response.ok) return; const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `chatstreet-${campaign.id}-reconciliation.csv`; anchor.click(); URL.revokeObjectURL(url); })}>Export CSV</button></div><div className="reconciliation-table"><table><thead><tr><th>Date</th><th>Platform</th><th>Publisher</th><th>Line item</th><th>Creative</th><th>Placement/site</th><th>Widget loads</th><th>IDs matched</th></tr></thead><tbody>{analytics?.reconciliation.slice(0,30).map((row) => <tr key={[row.date,row.platform,row.publisher,row.lineItemId,row.creativeId,row.placementId,row.siteId].join("|")}><td>{row.date}</td><td>{row.platform}</td><td>{row.publisher}</td><td>{row.lineItemId || "—"}</td><td>{row.creativeId || "—"}</td><td>{row.placementId || row.siteId || "—"}</td><td>{row.widgetLoads}</td><td>{row.matchedImpressions}</td></tr>)}</tbody></table></div></div>
+        <div className="reconciliation-panel"><div className="panel-head"><div><small>DELIVERY RECONCILIATION</small><h2>Platform dimensions</h2></div><button onClick={() => fetch(`/api/analytics?campaignId=${encodeURIComponent(campaign.id)}&from=${fromDate}&to=${toDate}&format=csv`, { headers }).then(async (response) => { if (!response.ok) return; const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `chatstreet-${campaign.id}-${fromDate}-${toDate}.csv`; anchor.click(); URL.revokeObjectURL(url); })}>Export CSV</button></div><div className="reconciliation-table"><table><thead><tr><th>Date</th><th>Platform</th><th>Publisher</th><th>Line item</th><th>Creative</th><th>Placement/site</th><th>Tracked impressions</th><th>Widget loads</th><th>Load rate</th></tr></thead><tbody>{analytics?.reconciliation.slice(0,30).map((row) => <tr key={[row.date,row.platform,row.publisher,row.lineItemId,row.creativeId,row.placementId,row.siteId].join("|")}><td>{row.date}</td><td>{row.platform}</td><td>{row.publisher}</td><td>{row.lineItemId || "—"}</td><td>{row.creativeId || "—"}</td><td>{row.placementId || row.siteId || "—"}</td><td>{row.matchedImpressions}</td><td>{row.widgetLoads}</td><td>{row.matchedImpressions ? `${Math.round(row.widgetLoads / row.matchedImpressions * 100)}%` : "—"}</td></tr>)}</tbody></table></div></div>
       </section>}
 
       {tab === "campaign" && <div className="studio-workspace"><section className="studio-editor"><div className="studio-title"><span>CAMPAIGN CONSOLE</span><h1>Build the conversation and its commercial rules.</h1><p>The live article always leads. Sponsorship appears only when the reader’s declared intent matches this brief.</p></div>

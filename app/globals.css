@@ -282,11 +282,15 @@ button { cursor: pointer; }
 .platform-table > div:last-child { border-bottom: 0; }
 .platform-table em { width: fit-content; padding: 5px 7px; border-radius: 100px; background: #e7edcd; color: #647a21; font-size: 8px; font-style: normal; }
 .delivery-note { color: #7a847e; font-size: 9px; line-height: 1.55; }
-.analytics-cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.analytics-cards { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
 .analytics-cards article { padding: 18px; display: flex; flex-direction: column; gap: 8px; border: 1px solid #d5dad2; border-radius: 13px; background: #fbfaf6; }
 .analytics-cards small { color: #738078; font-size: 8px; font-weight: 800; }
 .analytics-cards strong { font-family: Georgia, serif; font-size: 30px; font-weight: 500; }
 .analytics-cards span { color: #7b8d47; font-size: 8px; line-height: 1.4; }
+.analytics-filters { margin: -20px 0 18px; display: flex; align-items: end; gap: 10px; }
+.analytics-filters label { display: grid; gap: 5px; color: #718078; font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.analytics-filters input { padding: 9px 10px; border: 1px solid #d2d8cf; border-radius: 8px; background: #fbfaf6; color: #26372f; font: inherit; }
+.analytics-filters span { margin-left: 4px; padding-bottom: 9px; color: #7a8780; font-size: 9px; }
 .reconciliation-panel { margin-top: 12px; padding: 20px; border: 1px solid #d5dad2; border-radius: 13px; background: #fbfaf6; }
 .reconciliation-panel .panel-head button { padding: 9px 12px; border: 0; border-radius: 8px; background: var(--forest); color: white; font-size: 9px; font-weight: 800; }
 .reconciliation-table { overflow-x: auto; }
