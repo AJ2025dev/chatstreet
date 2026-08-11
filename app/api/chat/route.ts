@@ -42,7 +42,9 @@ function fallback(message: string, advertiser: string, pageTitle = "", pageConte
       reasons: ["410 km range", "8-year warranty", "Home charger"],
       ctaLabel: "Book a test drive",
     },
-    quickReplies: ["Estimate my savings", "What about charging?", "Compare variants"],
+    quickReplies: article && !articleRelevantToSponsor
+      ? ["What is the key takeaway?", "Explain this simply", "What should I consider next?"]
+      : ["Estimate my savings", "What about charging?", "Compare variants"],
     mode: "fallback",
   };
 }
