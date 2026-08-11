@@ -56,17 +56,15 @@ function safePrompts(value: string) {
   }
 }
 
-export default function Widget() {
+export default function Widget({ initialQuery = "" }: { initialQuery?: string }) {
   const [campaign, setCampaign] = useState<Campaign>(fallbackCampaign);
   const [messages, setMessages] = useState<Message[]>([]);
   const [prompts, setPrompts] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(() =>
-    typeof window === "undefined"
-      ? true
-      : new URLSearchParams(window.location.search).get("mode") === "inline" ||
-        new URLSearchParams(window.location.search).get("open") !== "false",
+    new URLSearchParams(initialQuery).get("mode") === "inline" ||
+      new URLSearchParams(initialQuery).get("open") !== "false",
   );
   const [leadOpen, setLeadOpen] = useState(false);
   const [leadDone, setLeadDone] = useState(false);
@@ -76,9 +74,8 @@ export default function Widget() {
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const params = useMemo(() => {
-    if (typeof window === "undefined") return new URLSearchParams();
-    return new URLSearchParams(window.location.search);
-  }, []);
+    return new URLSearchParams(initialQuery);
+  }, [initialQuery]);
   const campaignId = params.get("campaign") || fallbackCampaign.id;
   const publisher = params.get("publisher") || "demo-publisher";
   const mode = params.get("mode") || "floating";
